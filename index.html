@@ -271,6 +271,7 @@
 
 const BAR_WEIGHT = 18;
 const STORAGE_KEY = 'barbell_logger_v1';
+const DATA_VERSION = 1; // bump when making breaking schema changes
 
 const PLATE_SIZES = [25, 10, 5, 2.5, 1.25];
 
@@ -313,13 +314,22 @@ let editingWorkoutId = null;
 // ═══════════════════════════════════════════════════════════
 
 function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, version: DATA_VERSION }));
+}
+
+// Applies sequential migrations so old saved data always loads cleanly.
+// Add a new `if (version < N)` block here whenever making a breaking schema change.
+function migrateState(raw) {
+  let version = raw.version || 0;
+  // v0 → v1: initial versioned format; structure unchanged
+  if (version < 1) { version = 1; }
+  raw.version = version;
+  return raw;
 }
 
 function loadState() {
   const raw = localStorage.getItem(STORAGE_KEY);
   if (!raw) {
-    // First run: seed default exercises
     state = {
       exercises: DEFAULT_EXERCISES.map(e => ({ ...e })),
       workouts: [],
@@ -329,13 +339,19 @@ function loadState() {
     return;
   }
   try {
-    state = JSON.parse(raw);
-    // Ensure all default exercises are present (handles schema upgrades)
+    const parsed = migrateState(JSON.parse(raw));
+    state = {
+      exercises: parsed.exercises || [],
+      workouts:  parsed.workouts  || [],
+      bodyweights: parsed.bodyweights || [],
+    };
+    // Ensure all default exercises are present
     for (const def of DEFAULT_EXERCISES) {
       if (!state.exercises.find(e => e.id === def.id)) {
         state.exercises.unshift({ ...def });
       }
     }
+    saveState(); // persist any applied migrations
   } catch {
     state = {
       exercises: DEFAULT_EXERCISES.map(e => ({ ...e })),
@@ -344,6 +360,63 @@ function loadState() {
     };
     saveState();
   }
+}
+
+// ═══════════════════════════════════════════════════════════
+// EXPORT / IMPORT
+// ═══════════════════════════════════════════════════════════
+
+function exportData() {
+  const data = JSON.stringify({ ...state, version: DATA_VERSION }, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `barbell-logger-${todayISO()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importData() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json,application/json';
+  input.onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const raw = JSON.parse(ev.target.result);
+        if (!Array.isArray(raw.workouts) || !Array.isArray(raw.exercises)) {
+          alert('Invalid backup file.');
+          return;
+        }
+        if (!confirm(
+          `Import ${raw.workouts.length} workout(s) and ${raw.exercises.length} exercise(s)?\n` +
+          'This will replace all current data.'
+        )) return;
+        const migrated = migrateState(raw);
+        state = {
+          exercises:   migrated.exercises   || [],
+          workouts:    migrated.workouts    || [],
+          bodyweights: migrated.bodyweights || [],
+        };
+        for (const def of DEFAULT_EXERCISES) {
+          if (!state.exercises.find(e => e.id === def.id)) {
+            state.exercises.unshift({ ...def });
+          }
+        }
+        saveState();
+        render();
+        alert('Data imported successfully.');
+      } catch {
+        alert('Failed to read backup file. Make sure it is a valid JSON export.');
+      }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -800,7 +873,18 @@ function renderExercises() {
       </button>
     </div>
     <hr class="divider" />
-    ${items}`;
+    ${items}
+    <hr class="divider" />
+    <h3 style="margin-bottom:10px">Data</h3>
+    <div class="card">
+      <p style="font-size:.85rem;color:var(--text-dim);margin-bottom:12px">
+        Export a JSON backup of all your workouts and bodyweight entries, or restore from a previous backup.
+      </p>
+      <div class="flex-row">
+        <button class="btn btn-secondary btn-full" data-action="export-data">Export JSON</button>
+        <button class="btn btn-secondary btn-full" data-action="import-data">Import JSON</button>
+      </div>
+    </div>`;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -964,6 +1048,10 @@ document.querySelector('main').addEventListener('click', e => {
     renderBodyweight();
     return;
   }
+
+  // ── Data export / import ───────────────────────────────
+  if (action === 'export-data') { exportData(); return; }
+  if (action === 'import-data') { importData(); return; }
 
   // ── Exercises ──────────────────────────────────────────
   if (action === 'add-custom-exercise') {
