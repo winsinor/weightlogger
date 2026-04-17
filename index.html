@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Barbell Workout Logger</title>
+  <style>
+    /* ── Reset & Base ─────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:         #0f0f0f;
+      --surface:    #1a1a1a;
+      --surface2:   #242424;
+      --surface3:   #2e2e2e;
+      --border:     #333;
+      --accent:     #e07b39;
+      --accent-dim: #a3551f;
+      --text:       #e8e8e8;
+      --text-dim:   #888;
+      --danger:     #c0392b;
+      --danger-dim: #922b21;
+      --success:    #27ae60;
+      --radius:     8px;
+      --tap:        44px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 16px;
+      line-height: 1.5;
+      min-height: 100dvh;
+    }
+
+    /* ── Layout ───────────────────────────────────────────── */
+    #app { display: flex; flex-direction: column; min-height: 100dvh; }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 16px;
+      position: sticky; top: 0; z-index: 10;
+    }
+    header h1 { font-size: 1.1rem; font-weight: 700; letter-spacing: .5px; }
+
+    nav {
+      display: flex;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 49px; z-index: 9;
+      overflow-x: auto;
+    }
+    nav button {
+      flex: 1; min-width: 80px;
+      padding: 12px 8px;
+      background: none; border: none; color: var(--text-dim);
+      font-size: .85rem; font-weight: 600; cursor: pointer;
+      border-bottom: 2px solid transparent;
+      white-space: nowrap;
+      min-height: var(--tap);
+    }
+    nav button.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    main { flex: 1; padding: 16px; max-width: 640px; margin: 0 auto; width: 100%; }
+
+    section { display: none; }
+    section.active { display: block; }
+
+    /* ── Typography ───────────────────────────────────────── */
+    h2 { font-size: 1.2rem; margin-bottom: 16px; }
+    h3 { font-size: 1rem; margin-bottom: 8px; }
+    h4 { font-size: .9rem; color: var(--text-dim); font-weight: 600; margin-bottom: 6px; }
+
+    /* ── Cards ────────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+    .card-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    /* ── Buttons ──────────────────────────────────────────── */
+    button { cursor: pointer; border: none; border-radius: var(--radius); font-family: inherit; }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 10px 16px; font-size: .9rem; font-weight: 600;
+      min-height: var(--tap);
+      transition: opacity .15s;
+    }
+    .btn:active { opacity: .75; }
+
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: #c96d2d; }
+
+    .btn-secondary {
+      background: var(--surface2); color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover { background: var(--surface3); }
+
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-danger:hover { background: var(--danger-dim); }
+
+    .btn-ghost {
+      background: none; color: var(--text-dim); padding: 8px;
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { color: var(--text); border-color: #555; }
+
+    .btn-sm { padding: 6px 12px; font-size: .8rem; min-height: 36px; }
+
+    .btn-full { width: 100%; }
+
+    /* ── Form Controls ────────────────────────────────────── */
+    label { display: block; font-size: .85rem; color: var(--text-dim); margin-bottom: 4px; }
+
+    input[type="text"], input[type="number"], input[type="date"], select {
+      width: 100%; padding: 10px 12px;
+      background: var(--surface2); color: var(--text);
+      border: 1px solid var(--border); border-radius: var(--radius);
+      font-size: .95rem; font-family: inherit;
+      min-height: var(--tap);
+    }
+    input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+    input[type="number"] { -moz-appearance: textfield; }
+    input[type="number"]::-webkit-inner-spin-button { display: none; }
+
+    .form-row { margin-bottom: 12px; }
+    .form-row-inline { display: flex; gap: 10px; margin-bottom: 12px; }
+    .form-row-inline > * { flex: 1; }
+
+    /* ── Plate Controls ───────────────────────────────────── */
+    .plate-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 6px 0; border-bottom: 1px solid var(--border);
+    }
+    .plate-row:last-child { border-bottom: none; }
+    .plate-label { font-size: .85rem; color: var(--text-dim); min-width: 50px; }
+    .qty-control { display: flex; align-items: center; gap: 8px; }
+    .qty-btn {
+      width: 36px; height: 36px;
+      background: var(--surface3); color: var(--text);
+      border: 1px solid var(--border); border-radius: 6px;
+      font-size: 1.1rem; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .qty-btn:active { background: var(--surface2); }
+    .qty-value { min-width: 24px; text-align: center; font-weight: 600; }
+
+    /* ── Set Card ─────────────────────────────────────────── */
+    .set-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+    .set-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .set-title { font-weight: 700; font-size: .9rem; }
+    .set-weight { font-size: .85rem; color: var(--accent); font-weight: 700; }
+
+    /* ── Exercise block in workout builder ────────────────── */
+    .exercise-block {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      margin-bottom: 14px;
+    }
+    .exercise-block-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    /* ── History entries ──────────────────────────────────── */
+    .history-date { font-size: .8rem; color: var(--text-dim); margin-bottom: 6px; }
+    .history-exercise { margin-bottom: 8px; }
+    .history-sets { font-size: .85rem; color: var(--text-dim); margin-top: 2px; }
+    .history-set-chip {
+      display: inline-block;
+      background: var(--surface3); border-radius: 4px;
+      padding: 2px 7px; margin: 2px 2px 2px 0;
+      font-size: .78rem;
+    }
+
+    /* ── Exercise list ────────────────────────────────────── */
+    .exercise-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 8px;
+    }
+    .exercise-item .default-tag {
+      font-size: .7rem; color: var(--text-dim);
+      background: var(--surface3); border-radius: 3px; padding: 1px 5px;
+      margin-left: 8px;
+    }
+
+    /* ── Bodyweight ───────────────────────────────────────── */
+    .bw-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 8px;
+    }
+    .bw-date { font-size: .85rem; color: var(--text-dim); }
+    .bw-weight { font-weight: 700; font-size: 1rem; }
+
+    /* ── Utility ──────────────────────────────────────────── */
+    .divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+    .empty-state { text-align: center; color: var(--text-dim); padding: 40px 16px; font-size: .9rem; }
+    .text-danger { color: var(--danger); }
+    .text-accent { color: var(--accent); }
+    .flex-row { display: flex; gap: 8px; }
+    .mt-8 { margin-top: 8px; }
+    .mt-12 { margin-top: 12px; }
+    .mb-0 { margin-bottom: 0; }
+
+    /* ── Inline edit highlight ────────────────────────────── */
+    .editing-card {
+      border-color: var(--accent) !important;
+    }
+
+    /* ── Barbell Visualization ────────────────────────────── */
+    .bar-viz {
+      background: #111;
+      border-radius: 6px;
+      padding: 10px 0 8px;
+      margin-bottom: 12px;
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Barbell Workout Logger</h1>
+  </header>
+  <nav>
+    <button data-tab="new-workout" class="active">New Workout</button>
+    <button data-tab="history">History</button>
+    <button data-tab="bodyweight">Bodyweight</button>
+    <button data-tab="exercises">Exercises</button>
+  </nav>
+  <main>
+    <section id="new-workout" class="active"></section>
+    <section id="history"></section>
+    <section id="bodyweight"></section>
+    <section id="exercises"></section>
+  </main>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════════════════════
+
+const BAR_WEIGHT = 18;
+const STORAGE_KEY = 'barbell_logger_v1';
+
+const PLATE_SIZES = [1.25, 2.5, 5, 10, 25, 50];
+
+// Visual config per plate size: width (px on bar), height (px diameter), colors
+const PLATE_VIZ = {
+  '50':   { w: 14, h: 66, fill: '#e8e8e8', stroke: '#999'    },
+  '25':   { w: 12, h: 58, fill: '#c0392b', stroke: '#7b241c' },
+  '10':   { w: 10, h: 48, fill: '#d4ac0d', stroke: '#9a7d0a' },
+  '5':    { w:  9, h: 40, fill: '#1e8449', stroke: '#145a32' },
+  '2.5':  { w:  8, h: 32, fill: '#2471a3', stroke: '#1a5276' },
+  '1.25': { w:  7, h: 24, fill: '#2c2c2c', stroke: '#555'    },
+};
+
+const DEFAULT_EXERCISES = [
+  { id: 'default_bench',   name: 'Bench Press',      isDefault: true },
+  { id: 'default_row',     name: 'Barbell Row',       isDefault: true },
+  { id: 'default_ohp',     name: 'Overhead Press',    isDefault: true },
+  { id: 'default_curl',    name: 'Barbell Curl',       isDefault: true },
+  { id: 'default_skull',   name: 'Skull Crushers',    isDefault: true },
+];
+
+// ═══════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════
+
+let state = {
+  exercises: [],
+  workouts: [],
+  bodyweights: [],
+};
+
+// In-progress workout being built (not yet saved to state)
+let draft = null;
+
+// Which workout is being edited (id or null)
+let editingWorkoutId = null;
+
+// ═══════════════════════════════════════════════════════════
+// PERSISTENCE
+// ═══════════════════════════════════════════════════════════
+
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function loadState() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) {
+    // First run: seed default exercises
+    state = {
+      exercises: DEFAULT_EXERCISES.map(e => ({ ...e })),
+      workouts: [],
+      bodyweights: [],
+    };
+    saveState();
+    return;
+  }
+  try {
+    state = JSON.parse(raw);
+    // Ensure all default exercises are present (handles schema upgrades)
+    for (const def of DEFAULT_EXERCISES) {
+      if (!state.exercises.find(e => e.id === def.id)) {
+        state.exercises.unshift({ ...def });
+      }
+    }
+  } catch {
+    state = {
+      exercises: DEFAULT_EXERCISES.map(e => ({ ...e })),
+      workouts: [],
+      bodyweights: [],
+    };
+    saveState();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════
+
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function formatDate(iso) {
+  // Display in a readable way: "Mon, Apr 1 2026"
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+/**
+ * calculateTotalWeight(plates) → number
+ * total = BAR_WEIGHT + 2 × Σ(plateSize × quantity)
+ */
+function calculateTotalWeight(plates) {
+  let sum = 0;
+  for (const [size, qty] of Object.entries(plates)) {
+    sum += parseFloat(size) * qty;
+  }
+  return BAR_WEIGHT + 2 * sum;
+}
+
+function emptyPlates() {
+  const p = {};
+  for (const s of PLATE_SIZES) p[String(s)] = 0;
+  return p;
+}
+
+function emptySet() {
+  return { reps: 1, plates: emptyPlates() };
+}
+
+function emptyDraftExercise(exerciseId) {
+  return { exerciseId, sets: [emptySet()] };
+}
+
+/**
+ * simplifyPlates(plates) → plates
+ * Greedily re-encodes a per-side plate total using the fewest/largest plates.
+ * e.g. 2×10 + 1×5 = 25 per side → 1×25
+ * Uses integer arithmetic (×4 scaling) to avoid floating point errors.
+ */
+function simplifyPlates(plates) {
+  const SCALE = 4; // 1.25 * 4 = 5, so all sizes become integers
+  let totalScaled = 0;
+  for (const [size, qty] of Object.entries(plates)) {
+    totalScaled += Math.round(parseFloat(size) * SCALE) * qty;
+  }
+  const result = emptyPlates();
+  for (const size of [...PLATE_SIZES].sort((a, b) => b - a)) {
+    const sizeScaled = Math.round(size * SCALE);
+    const count = Math.floor(totalScaled / sizeScaled);
+    if (count > 0) {
+      result[String(size)] = count;
+      totalScaled -= sizeScaled * count;
+    }
+    if (totalScaled === 0) break;
+  }
+  return result;
+}
+
+/**
+ * Returns a deep-cloned copy of the sets from the most recent workout
+ * that included exerciseId, or null if no prior history exists.
+ * Plates are simplified to the most efficient combination.
+ */
+function getLastSetsForExercise(exerciseId) {
+  const sorted = [...state.workouts].sort((a, b) => b.date.localeCompare(a.date));
+  for (const workout of sorted) {
+    const ex = workout.exercises.find(e => e.exerciseId === exerciseId);
+    if (ex) {
+      const sets = JSON.parse(JSON.stringify(ex.sets));
+      return sets.map(s => ({ ...s, plates: simplifyPlates(s.plates) }));
+    }
+  }
+  return null;
+}
+
+function getExerciseName(exerciseId) {
+  const ex = state.exercises.find(e => e.id === exerciseId);
+  return ex ? ex.name : 'Unknown';
+}
+
+// ═══════════════════════════════════════════════════════════
+// DRAFT MANAGEMENT
+// ═══════════════════════════════════════════════════════════
+
+function initDraft(date = todayISO()) {
+  draft = { date, exercises: [] };
+}
+
+function draftFromWorkout(workout) {
+  // Deep clone so edits don't mutate state until saved
+  draft = JSON.parse(JSON.stringify(workout));
+}
+
+// ═══════════════════════════════════════════════════════════
+// VALIDATION
+// ═══════════════════════════════════════════════════════════
+
+function validateDraft(d) {
+  const errors = [];
+  if (!d.date) errors.push('Date is required.');
+  if (!d.exercises.length) errors.push('Add at least one exercise.');
+
+  for (const ex of d.exercises) {
+    const validSets = ex.sets.filter(s => s.reps > 0);
+    if (!validSets.length) {
+      errors.push(`"${getExerciseName(ex.exerciseId)}" has no valid sets (reps must be > 0).`);
+    }
+  }
+  return errors;
+}
+
+// ═══════════════════════════════════════════════════════════
+// SAVE WORKOUT
+// ═══════════════════════════════════════════════════════════
+
+function saveWorkout() {
+  const errors = validateDraft(draft);
+  if (errors.length) { alert(errors.join('\n')); return false; }
+
+  // Strip sets with reps === 0
+  const cleanedExercises = draft.exercises.map(ex => ({
+    ...ex,
+    sets: ex.sets.filter(s => s.reps > 0),
+  })).filter(ex => ex.sets.length > 0);
+
+  if (editingWorkoutId) {
+    const idx = state.workouts.findIndex(w => w.id === editingWorkoutId);
+    if (idx !== -1) {
+      state.workouts[idx] = { ...draft, exercises: cleanedExercises, id: editingWorkoutId };
+    }
+    editingWorkoutId = null;
+  } else {
+    state.workouts.push({
+      id: uid(),
+      date: draft.date,
+      exercises: cleanedExercises,
+    });
+  }
+
+  saveState();
+  draft = null;
+  return true;
+}
+
+// ═══════════════════════════════════════════════════════════
+// BARBELL VISUALIZATION
+// ═══════════════════════════════════════════════════════════
+
+/**
+ * Renders an SVG barbell diagram for a given plates object.
+ * Largest plates sit innermost (closest to grip), smallest outermost.
+ */
+function renderBarbellSVG(plates) {
+  const W = 320, H = 80, CY = 40;
+  const BAR_Y = CY - 3, BAR_H = 6;
+  const BAR_X1 = 10, BAR_X2 = 310;
+  const GRIP_L = 120, GRIP_R = 200; // center grip zone
+  const COL_W = 8, COL_H = 20;     // end collars
+
+  // Build ordered list: largest plate first (innermost)
+  const order = [];
+  for (const s of [...PLATE_SIZES].sort((a, b) => b - a)) {
+    const n = plates[String(s)] || 0;
+    for (let i = 0; i < n; i++) order.push(String(s));
+  }
+
+  // Left side: stack plates leftward from GRIP_L
+  let lx = GRIP_L;
+  const leftRects = order.map(s => {
+    const c = PLATE_VIZ[s];
+    lx -= c.w;
+    return `<rect x="${lx}" y="${CY - c.h / 2}" width="${c.w}" height="${c.h}" rx="3" fill="${c.fill}" stroke="${c.stroke}" stroke-width="1.5"/>`;
+  });
+
+  // Right side: stack plates rightward from GRIP_R
+  let rx = GRIP_R;
+  const rightRects = order.map(s => {
+    const c = PLATE_VIZ[s];
+    const x = rx;
+    rx += c.w;
+    return `<rect x="${x}" y="${CY - c.h / 2}" width="${c.w}" height="${c.h}" rx="3" fill="${c.fill}" stroke="${c.stroke}" stroke-width="1.5"/>`;
+  });
+
+  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block">
+    <rect x="${BAR_X1}" y="${BAR_Y}" width="${BAR_X2 - BAR_X1}" height="${BAR_H}" rx="3" fill="#6b6b6b"/>
+    <rect x="${GRIP_L}" y="${BAR_Y}" width="${GRIP_R - GRIP_L}" height="${BAR_H}" fill="#505050"/>
+    ${leftRects.join('')}
+    ${rightRects.join('')}
+    <rect x="${BAR_X1}" y="${CY - COL_H / 2}" width="${COL_W}" height="${COL_H}" rx="2" fill="#454545" stroke="#2c2c2c" stroke-width="1"/>
+    <rect x="${BAR_X2 - COL_W}" y="${CY - COL_H / 2}" width="${COL_W}" height="${COL_H}" rx="2" fill="#454545" stroke="#2c2c2c" stroke-width="1"/>
+  </svg>`;
+}
+
+function updateBarbellViz(exIdx, setIdx) {
+  const el = document.getElementById(`bar-viz-${exIdx}-${setIdx}`);
+  if (!el) return;
+  el.innerHTML = renderBarbellSVG(draft.exercises[exIdx].sets[setIdx].plates);
+}
+
+// ═══════════════════════════════════════════════════════════
+// RENDER HELPERS — shared UI fragments
+// ═══════════════════════════════════════════════════════════
+
+/**
+ * Renders plate quantity controls for one set.
+ * `pathPrefix` identifies the set in the draft (used in data attributes).
+ */
+function renderPlateControls(plates, exIdx, setIdx) {
+  return PLATE_SIZES.map(size => {
+    const key = String(size);
+    const qty = plates[key] || 0;
+    return `
+      <div class="plate-row">
+        <span class="plate-label">${size} lbs × 2</span>
+        <div class="qty-control">
+          <button class="qty-btn"
+            data-action="plate-dec"
+            data-ex="${exIdx}" data-set="${setIdx}" data-plate="${key}">−</button>
+          <span class="qty-value" id="qty-${exIdx}-${setIdx}-${key}">${qty}</span>
+          <button class="qty-btn"
+            data-action="plate-inc"
+            data-ex="${exIdx}" data-set="${setIdx}" data-plate="${key}">+</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function renderSetCard(set, exIdx, setIdx, editable = true) {
+  const total = calculateTotalWeight(set.plates);
+  if (!editable) {
+    // Read-only view (history)
+    const plateSummary = PLATE_SIZES
+      .filter(s => (set.plates[String(s)] || 0) > 0)
+      .map(s => `${s}×${set.plates[String(s)]}`)
+      .join(' ');
+    return `
+      <span class="history-set-chip">
+        ${set.reps} reps @ ${total} lbs${plateSummary ? ' (' + plateSummary + ')' : ''}
+      </span>`;
+  }
+
+  return `
+    <div class="set-card" id="set-card-${exIdx}-${setIdx}">
+      <div class="set-header">
+        <span class="set-title">Set ${setIdx + 1}</span>
+        <span class="set-weight" id="set-weight-${exIdx}-${setIdx}">${total} lbs</span>
+        <button class="btn btn-ghost btn-sm text-danger"
+          data-action="remove-set" data-ex="${exIdx}" data-set="${setIdx}">✕</button>
+      </div>
+      <div class="bar-viz" id="bar-viz-${exIdx}-${setIdx}">
+        ${renderBarbellSVG(set.plates)}
+      </div>
+      <div class="form-row">
+        <label>Reps</label>
+        <input type="number" min="1" value="${set.reps}"
+          data-action="set-reps" data-ex="${exIdx}" data-set="${setIdx}" />
+      </div>
+      <h4>Plates per side</h4>
+      ${renderPlateControls(set.plates, exIdx, setIdx)}
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════
+// RENDER — NEW WORKOUT TAB
+// ═══════════════════════════════════════════════════════════
+
+function renderNewWorkout() {
+  const el = document.getElementById('new-workout');
+
+  if (!draft) {
+    el.innerHTML = `
+      <h2>${editingWorkoutId ? 'Edit Workout' : 'New Workout'}</h2>
+      <div class="card">
+        <div class="form-row">
+          <label>Date</label>
+          <input type="date" id="workout-date" value="${todayISO()}" />
+        </div>
+        <button class="btn btn-primary btn-full mt-12" data-action="start-workout">
+          Start Workout
+        </button>
+      </div>`;
+    return;
+  }
+
+  const exerciseOptions = state.exercises
+    .map(e => `<option value="${e.id}">${e.name}</option>`)
+    .join('');
+
+  const exerciseBlocks = draft.exercises.map((ex, exIdx) => `
+    <div class="exercise-block" id="ex-block-${exIdx}">
+      <div class="exercise-block-header">
+        <h3>${getExerciseName(ex.exerciseId)}</h3>
+        <button class="btn btn-ghost btn-sm text-danger"
+          data-action="remove-exercise" data-ex="${exIdx}">Remove</button>
+      </div>
+      ${ex.sets.map((set, setIdx) => renderSetCard(set, exIdx, setIdx, true)).join('')}
+      <button class="btn btn-secondary btn-sm mt-8"
+        data-action="add-set" data-ex="${exIdx}">+ Add Set</button>
+    </div>`).join('');
+
+  el.innerHTML = `
+    <h2>${editingWorkoutId ? 'Edit Workout' : 'New Workout'}</h2>
+
+    <div class="card editing-card">
+      <div class="form-row">
+        <label>Date</label>
+        <input type="date" id="workout-date-draft" value="${draft.date}" data-action="draft-date" />
+      </div>
+    </div>
+
+    ${exerciseBlocks}
+
+    <div class="card">
+      <div class="form-row">
+        <label>Add Exercise</label>
+        <select id="add-exercise-select">${exerciseOptions}</select>
+      </div>
+      <button class="btn btn-secondary btn-full mt-8" data-action="add-exercise">
+        + Add Exercise
+      </button>
+    </div>
+
+    <div class="flex-row mt-12">
+      <button class="btn btn-danger" style="flex:1" data-action="cancel-workout">Cancel</button>
+      <button class="btn btn-primary" style="flex:2" data-action="save-workout">
+        ${editingWorkoutId ? 'Save Changes' : 'Save Workout'}
+      </button>
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════
+// RENDER — HISTORY TAB
+// ═══════════════════════════════════════════════════════════
+
+function renderHistory() {
+  const el = document.getElementById('history');
+  const sorted = [...state.workouts].sort((a, b) => b.date.localeCompare(a.date));
+
+  if (!sorted.length) {
+    el.innerHTML = `<h2>History</h2><p class="empty-state">No workouts saved yet.</p>`;
+    return;
+  }
+
+  const cards = sorted.map(workout => {
+    const exRows = workout.exercises.map(ex => `
+      <div class="history-exercise">
+        <h4>${getExerciseName(ex.exerciseId)}</h4>
+        <div class="history-sets">
+          ${ex.sets.map((set, si) => renderSetCard(set, 0, si, false)).join('')}
+        </div>
+      </div>`).join('');
+
+    return `
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div style="font-weight:700">${formatDate(workout.date)}</div>
+            <div class="history-date">${workout.exercises.length} exercise(s)</div>
+          </div>
+          <div class="flex-row">
+            <button class="btn btn-secondary btn-sm"
+              data-action="edit-workout" data-id="${workout.id}">Edit</button>
+            <button class="btn btn-danger btn-sm"
+              data-action="delete-workout" data-id="${workout.id}">Delete</button>
+          </div>
+        </div>
+        ${exRows}
+      </div>`;
+  }).join('');
+
+  el.innerHTML = `<h2>History</h2>${cards}`;
+}
+
+// ═══════════════════════════════════════════════════════════
+// RENDER — BODYWEIGHT TAB
+// ═══════════════════════════════════════════════════════════
+
+function renderBodyweight() {
+  const el = document.getElementById('bodyweight');
+  const sorted = [...state.bodyweights].sort((a, b) => b.date.localeCompare(a.date));
+
+  const entries = sorted.length
+    ? sorted.map(entry => `
+        <div class="bw-item">
+          <div>
+            <div class="bw-weight">${entry.weight} lbs</div>
+            <div class="bw-date">${formatDate(entry.date)}</div>
+          </div>
+          <button class="btn btn-danger btn-sm"
+            data-action="delete-bw" data-id="${entry.id}">Delete</button>
+        </div>`).join('')
+    : '<p class="empty-state">No entries yet.</p>';
+
+  el.innerHTML = `
+    <h2>Bodyweight</h2>
+    <div class="card">
+      <div class="form-row-inline">
+        <div>
+          <label>Date</label>
+          <input type="date" id="bw-date" value="${todayISO()}" />
+        </div>
+        <div>
+          <label>Weight (lbs)</label>
+          <input type="number" min="1" id="bw-weight" placeholder="e.g. 180" />
+        </div>
+      </div>
+      <button class="btn btn-primary btn-full" data-action="save-bw">Log Bodyweight</button>
+    </div>
+    <hr class="divider" />
+    ${entries}`;
+}
+
+// ═══════════════════════════════════════════════════════════
+// RENDER — EXERCISES TAB
+// ═══════════════════════════════════════════════════════════
+
+function renderExercises() {
+  const el = document.getElementById('exercises');
+
+  const items = state.exercises.map(ex => `
+    <div class="exercise-item">
+      <span>
+        ${ex.name}
+        ${ex.isDefault ? '<span class="default-tag">default</span>' : ''}
+      </span>
+      ${!ex.isDefault
+        ? `<button class="btn btn-danger btn-sm"
+            data-action="delete-exercise" data-id="${ex.id}">Delete</button>`
+        : '<span></span>'}
+    </div>`).join('');
+
+  el.innerHTML = `
+    <h2>Exercises</h2>
+    <div class="card">
+      <div class="form-row">
+        <label>New Exercise Name</label>
+        <input type="text" id="new-exercise-name" placeholder="e.g. Romanian Deadlift" />
+      </div>
+      <button class="btn btn-primary btn-full" data-action="add-custom-exercise">
+        + Add Exercise
+      </button>
+    </div>
+    <hr class="divider" />
+    ${items}`;
+}
+
+// ═══════════════════════════════════════════════════════════
+// RENDER — MAIN ENTRY POINT
+// ═══════════════════════════════════════════════════════════
+
+function render() {
+  renderNewWorkout();
+  renderHistory();
+  renderBodyweight();
+  renderExercises();
+}
+
+// ═══════════════════════════════════════════════════════════
+// EVENT HANDLING — delegation
+// ═══════════════════════════════════════════════════════════
+
+// Navigation
+document.querySelector('nav').addEventListener('click', e => {
+  const btn = e.target.closest('button[data-tab]');
+  if (!btn) return;
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('main section').forEach(s => s.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(btn.dataset.tab).classList.add('active');
+});
+
+// All action buttons via delegation on main
+document.querySelector('main').addEventListener('click', e => {
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  const action = btn.dataset.action;
+
+  // ── New workout ────────────────────────────────────────
+  if (action === 'start-workout') {
+    const dateEl = document.getElementById('workout-date');
+    initDraft(dateEl.value || todayISO());
+    render();
+    return;
+  }
+
+  if (action === 'cancel-workout') {
+    if (!confirm('Discard this workout?')) return;
+    draft = null;
+    editingWorkoutId = null;
+    render();
+    return;
+  }
+
+  if (action === 'save-workout') {
+    if (saveWorkout()) {
+      render();
+      // Switch to history to show the saved workout
+      switchTab('history');
+    }
+    return;
+  }
+
+  if (action === 'add-exercise') {
+    const sel = document.getElementById('add-exercise-select');
+    if (!sel) return;
+    const exerciseId = sel.value;
+    // Pre-fill with last logged sets for this exercise, or start fresh
+    const lastSets = getLastSetsForExercise(exerciseId);
+    draft.exercises.push({ exerciseId, sets: lastSets || [emptySet()] });
+    renderNewWorkout(); // partial re-render of just this tab
+    return;
+  }
+
+  if (action === 'remove-exercise') {
+    const exIdx = parseInt(btn.dataset.ex);
+    draft.exercises.splice(exIdx, 1);
+    renderNewWorkout();
+    return;
+  }
+
+  if (action === 'add-set') {
+    const exIdx = parseInt(btn.dataset.ex);
+    // Copy plates from last set as a convenience default
+    const lastSet = draft.exercises[exIdx].sets.at(-1);
+    const newSet = lastSet
+      ? { reps: lastSet.reps, plates: { ...lastSet.plates } }
+      : emptySet();
+    draft.exercises[exIdx].sets.push(newSet);
+    renderNewWorkout();
+    return;
+  }
+
+  if (action === 'remove-set') {
+    const exIdx = parseInt(btn.dataset.ex);
+    const setIdx = parseInt(btn.dataset.set);
+    draft.exercises[exIdx].sets.splice(setIdx, 1);
+    renderNewWorkout();
+    return;
+  }
+
+  if (action === 'plate-inc') {
+    const { ex, set: setIdx, plate } = btn.dataset;
+    draft.exercises[ex].sets[setIdx].plates[plate]++;
+    updateSetWeight(ex, setIdx);
+    updateBarbellViz(ex, setIdx);
+    // Update qty display in place (avoid full re-render for snappiness)
+    document.getElementById(`qty-${ex}-${setIdx}-${plate}`).textContent =
+      draft.exercises[ex].sets[setIdx].plates[plate];
+    return;
+  }
+
+  if (action === 'plate-dec') {
+    const { ex, set: setIdx, plate } = btn.dataset;
+    const cur = draft.exercises[ex].sets[setIdx].plates[plate];
+    if (cur <= 0) return;
+    draft.exercises[ex].sets[setIdx].plates[plate]--;
+    updateSetWeight(ex, setIdx);
+    updateBarbellViz(ex, setIdx);
+    document.getElementById(`qty-${ex}-${setIdx}-${plate}`).textContent =
+      draft.exercises[ex].sets[setIdx].plates[plate];
+    return;
+  }
+
+  if (action === 'draft-date') {
+    // Handled by input event below
+    return;
+  }
+
+  // ── History ────────────────────────────────────────────
+  if (action === 'delete-workout') {
+    if (!confirm('Delete this workout?')) return;
+    state.workouts = state.workouts.filter(w => w.id !== btn.dataset.id);
+    saveState();
+    render();
+    return;
+  }
+
+  if (action === 'edit-workout') {
+    const workout = state.workouts.find(w => w.id === btn.dataset.id);
+    if (!workout) return;
+    editingWorkoutId = workout.id;
+    draftFromWorkout(workout);
+    render();
+    switchTab('new-workout');
+    return;
+  }
+
+  // ── Bodyweight ─────────────────────────────────────────
+  if (action === 'save-bw') {
+    const dateEl = document.getElementById('bw-date');
+    const weightEl = document.getElementById('bw-weight');
+    const weight = parseFloat(weightEl.value);
+    if (!weight || weight <= 0) { alert('Enter a valid weight > 0.'); return; }
+    state.bodyweights.push({ id: uid(), date: dateEl.value || todayISO(), weight });
+    saveState();
+    renderBodyweight();
+    weightEl.value = '';
+    return;
+  }
+
+  if (action === 'delete-bw') {
+    if (!confirm('Delete this entry?')) return;
+    state.bodyweights = state.bodyweights.filter(b => b.id !== btn.dataset.id);
+    saveState();
+    renderBodyweight();
+    return;
+  }
+
+  // ── Exercises ──────────────────────────────────────────
+  if (action === 'add-custom-exercise') {
+    const nameEl = document.getElementById('new-exercise-name');
+    const name = nameEl.value.trim();
+    if (!name) { alert('Enter an exercise name.'); return; }
+    state.exercises.push({ id: uid(), name, isDefault: false });
+    saveState();
+    nameEl.value = '';
+    renderExercises();
+    return;
+  }
+
+  if (action === 'delete-exercise') {
+    const ex = state.exercises.find(e => e.id === btn.dataset.id);
+    if (!ex || ex.isDefault) return; // safety guard
+    if (!confirm(`Delete "${ex.name}"?`)) return;
+    state.exercises = state.exercises.filter(e => e.id !== btn.dataset.id);
+    saveState();
+    renderExercises();
+    return;
+  }
+});
+
+// Input changes (reps + date) via delegation
+document.querySelector('main').addEventListener('input', e => {
+  const el = e.target;
+  const action = el.dataset.action;
+
+  if (action === 'set-reps') {
+    const exIdx = parseInt(el.dataset.ex);
+    const setIdx = parseInt(el.dataset.set);
+    const val = parseInt(el.value);
+    draft.exercises[exIdx].sets[setIdx].reps = isNaN(val) ? 0 : Math.max(0, val);
+    return;
+  }
+
+  if (action === 'draft-date') {
+    if (draft) draft.date = el.value;
+    return;
+  }
+});
+
+// ═══════════════════════════════════════════════════════════
+// LIVE WEIGHT UPDATE (without full re-render)
+// ═══════════════════════════════════════════════════════════
+
+function updateSetWeight(exIdx, setIdx) {
+  const weightEl = document.getElementById(`set-weight-${exIdx}-${setIdx}`);
+  if (!weightEl) return;
+  const total = calculateTotalWeight(draft.exercises[exIdx].sets[setIdx].plates);
+  weightEl.textContent = `${total} lbs`;
+}
+
+// ═══════════════════════════════════════════════════════════
+// TAB SWITCHING HELPER
+// ═══════════════════════════════════════════════════════════
+
+function switchTab(tabId) {
+  document.querySelectorAll('nav button').forEach(b => {
+    b.classList.toggle('active', b.dataset.tab === tabId);
+  });
+  document.querySelectorAll('main section').forEach(s => {
+    s.classList.toggle('active', s.id === tabId);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════════════════
+
+loadState();
+render();
+</script>
+</body>
+</html>
